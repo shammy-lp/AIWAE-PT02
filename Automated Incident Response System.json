@@ -1,0 +1,481 @@
+{
+  "name": "Automated Incident Response System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtMinute": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -24
+      ],
+      "id": "532d0f91-fcf2-4ea0-832f-4f4eede89964",
+      "name": "Hourly Incident Check"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Return ONLY valid JSON in this exact format:\n\n{\n  \"report_body\": \"string\",\n  \"severity_score\": \"High or Medium or Low\",\n  \"incident_title\": \"string\"\n}\n\nDo not wrap the response inside another object.\nDo not use markdown.\nDo not add explanations.",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=You are an expert Site Reliability Engineer and Incident Commander.\n\nAnalyze incident logs and generate a professional post-mortem report.\n\nClassify severity using these rules:\n\nHigh:\n- Production outage\n- Customer-facing downtime\n- Security breach\n- Data loss\n- Failed payments or login outage\n- Major infrastructure failure\n\nMedium:\n- Degraded performance\n- Partial service disruption\n- Repeated warnings that require follow-up\n\nLow:\n- Minor alerts\n- Self-healing issues\n- No customer impact\n- Informational warnings\n\nReturn valid JSON only.\nDo not include markdown, explanations, or extra text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        480,
+        -24
+      ],
+      "id": "ac71c696-2bdb-4463-a366-1e99a4ef78e0",
+      "name": "Incident Commander AI"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"report_body\": \"The incident involved a temporary service disruption caused by system instability. The issue requires technical review and follow-up actions.\",\n  \"severity_score\": \"Medium\",\n  \"incident_title\": \"Payment Gateway Technical Incident\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        704,
+        200
+      ],
+      "id": "83c3e29b-b8af-43de-b9a6-8c9ba7405ca4",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "mistral-medium-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        448,
+        200
+      ],
+      "id": "eb48cf25-f406-4046-a431-67f150f0cb7b",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "9AuR8S10fqvZEDLk",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        576,
+        200
+      ],
+      "id": "8d77aaa2-4774-48a0-8e3f-f2d50d73d07b",
+      "name": "Mistral Cloud Chat Model1",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "9AuR8S10fqvZEDLk",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "folderId": "1EdKXB_qg0SHFuZP37Weue2RZaViNIZWL",
+        "title": "={{ $json[\"incident_title\"] }} - {{ $(\"Fetch Pending Incidents\").item.json[\"Incident ID\"] }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        912,
+        -24
+      ],
+      "id": "ed6deacf-538b-4b7c-924e-2076bea0fce8",
+      "name": "Create Empty Post-Mortem Doc",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "UquACmhEJvN3tdhD",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "=POST-MORTEM INCIDENT REPORT  Incident ID: {{ $(\"Fetch Pending Incidents\").item.json[\"Incident ID\"] }}  \n\nTimestamp: {{ $(\"Fetch Pending Incidents\").item.json[\"Timestamp\"] }}  \n\nIncident Title: {{ $(\"Incident Commander AI\").item.json[\"incident_title\"] }}  \n\nSeverity: {{ $(\"Incident Commander AI\").item.json[\"severity_score\"] }}  \n\nPost-Mortem Summary: {{ $(\"Incident Commander AI\").item.json[\"report_body\"] }}  \n\nOriginal Raw Logs: {{ $(\"Fetch Pending Incidents\").item.json[\"Raw Logs\"] }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        -24
+      ],
+      "id": "be1fab57-6d5b-40f3-b3d8-57ca8c01dcb8",
+      "name": "Populate Post-Mortem Doc",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "UquACmhEJvN3tdhD",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "227f6859-691a-4a74-855d-9c9182de56d6",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        -24
+      ],
+      "id": "d9699f2b-0b48-477b-b3ed-b75027be00bd",
+      "name": "High Severity Escalation Check"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1YadjYZfGZpw1YFePaCfc8FTfQ2DXUo1A8z6-pTgfey0/edit?gid=1705521381#gid=1705521381",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1705521381,
+          "mode": "list",
+          "cachedResultName": "Incident Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1YadjYZfGZpw1YFePaCfc8FTfQ2DXUo1A8z6-pTgfey0/edit#gid=1705521381"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Report Status",
+              "lookupValue": "Pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        -24
+      ],
+      "id": "8b6e6c84-58be-40d4-99b4-470afff385cb",
+      "name": "Fetch Pending Incidents",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yeD1IZWnfo2STLjX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "simon.njuguna1@student.moringaschool.com",
+        "subject": "=URGENT: High Severity Incident - {{ $('Incident Commander AI').item.json.output.incident_title }}",
+        "emailType": "text",
+        "message": "=Dear CTO,\n\nA High Severity incident has been detected and documented by the Automated Incident Response System.\n\nIncident ID:\n{{ $('Fetch Pending Incidents').first().json['Incident ID'] }}\n\nIncident Title:\n{{ $('Incident Commander AI').first().json.output.incident_title }}\n\nSeverity:\n{{ $('Incident Commander AI').first().json.output.severity_score }}\n\nPost-Mortem Report:\nhttps://docs.google.com/document/d/{{ $('Create Empty Post-Mortem Doc').first().json.id }}/edit\n\nKindly review and advise on next actions.\n\nRegards,\nAutomated Incident Response System",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        -96
+      ],
+      "id": "b6586483-47ee-4cfa-9fad-0bfb0637f6b6",
+      "name": "Send CTO Escalation Email",
+      "webhookId": "5001de21-024e-45f7-aac2-5d6fd39b02fb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HAGEL5IrWHEFhJpx",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1YadjYZfGZpw1YFePaCfc8FTfQ2DXUo1A8z6-pTgfey0/edit?gid=1705521381#gid=1705521381",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1705521381,
+          "mode": "list",
+          "cachedResultName": "Incident Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1YadjYZfGZpw1YFePaCfc8FTfQ2DXUo1A8z6-pTgfey0/edit#gid=1705521381"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Incident ID": "={{ $('Fetch Pending Incidents').item.json['Incident ID'] }}",
+            "Report Status": "Processed",
+            "Google Doc Link": "=https://docs.google.com/document/d/{{ $('Create Empty Post-Mortem Doc').first().json.id }}/edit"
+          },
+          "matchingColumns": [
+            "Incident ID"
+          ],
+          "schema": [
+            {
+              "id": "Incident ID",
+              "displayName": "Incident ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Raw Logs",
+              "displayName": "Raw Logs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Report Status",
+              "displayName": "Report Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Google Doc Link",
+              "displayName": "Google Doc Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1808,
+        -24
+      ],
+      "id": "2542114b-7f5c-4b6f-b6be-c816946625c9",
+      "name": "Mark Incident as Processed",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yeD1IZWnfo2STLjX",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Escalation Logic:\n\nIf severity_score equals \"High\", the workflow sends an urgent Gmail escalation to the CTO.\n\nIf severity_score is \"Medium\" or \"Low\", no email is sent. The incident is documented in Google Docs and then marked as Processed in Google Sheets.",
+        "height": 192,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1248,
+        -272
+      ],
+      "typeVersion": 1,
+      "id": "77041b80-a5da-4910-a625-390a92dbb6f4",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Hourly Incident Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Incidents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Incident Commander AI",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Incident Commander AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Incident Commander AI",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Incident Commander AI": {
+      "main": [
+        [
+          {
+            "node": "Create Empty Post-Mortem Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Empty Post-Mortem Doc": {
+      "main": [
+        [
+          {
+            "node": "Populate Post-Mortem Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Populate Post-Mortem Doc": {
+      "main": [
+        [
+          {
+            "node": "High Severity Escalation Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Incidents": {
+      "main": [
+        [
+          {
+            "node": "Incident Commander AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Severity Escalation Check": {
+      "main": [
+        [
+          {
+            "node": "Send CTO Escalation Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Incident as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send CTO Escalation Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Incident as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5222f406-8c3a-49dd-8809-2d02639c828c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "733894e575bd30f751ae89c1585ae501dc6b4de380a1883ea1f7c5c977253230"
+  },
+  "id": "YP2fTfrVGqFOn8gj",
+  "tags": []
+}
